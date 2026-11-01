@@ -1,0 +1,67 @@
+# Environment & Secrets
+.env
+.env.*
+!.env.example
+
+# Vector index & generated runtime artifacts
+vectors.npz
+*.npz
+*.bin
+*.pt
+*.onnx
+
+# Project runtime data (audio, transcripts, local Qdrant)
+.ytrag/
+audio/
+transcripts/
+langtest/
+downloads/
+*.tmp
+*.part
+*.ytdl
+
+# Python bytecode & cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual Environments
+.venv/
+venv/
+ENV/
+env/
+env.bak/
+venv.bak/
+
+# Packaging & Distribution
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# IDE & Editor specific
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*~
+
+# Operating System specific
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+

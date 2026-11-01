@@ -1,0 +1,1019 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Dynamic YouTube RAG — Search Inside Any Video</title>
+<meta name="description" content="Paste any YouTube video or playlist URL, ask a question, and jump straight to the exact second it was explained." />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>&#127916;</text></svg>" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg:        #0b0d10;
+    --bg-soft:   #12151a;
+    --panel:     #161a20;
+    --panel-2:   #1c2129;
+    --border:    #262c36;
+    --border-lit:#333b47;
+    --text:      #e8edf3;
+    --text-dim:  #9aa4b2;
+    --text-faint:#68717f;
+    --accent:    #ff6b35;
+    --accent-dim:#ff6b3522;
+    --green:     #3fb950;
+    --green-dim: #3fb95022;
+    --amber:     #d9a441;
+    --radius:    12px;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: Inter, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-size: 15px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---------- header ---------- */
+  header {
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(180deg, #14181e 0%, var(--bg) 100%);
+  }
+  .header-inner {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 26px 24px 30px;
+  }
+  .brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 12px;
+  }
+  .brand::before {
+    content: "";
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 10px var(--accent);
+  }
+  h1 {
+    margin: 0;
+    font-size: clamp(26px, 4vw, 36px);
+    font-weight: 800;
+    letter-spacing: -0.025em;
+    line-height: 1.15;
+  }
+  h1 em { font-style: normal; color: var(--accent); }
+  .tagline {
+    margin: 10px 0 0;
+    color: var(--text-dim);
+    font-size: 15px;
+    max-width: 680px;
+  }
+  .stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px 26px;
+    margin-top: 18px;
+    font-size: 13px;
+    color: var(--text-faint);
+  }
+  .stats b { color: var(--text); font-weight: 700; font-variant-numeric: tabular-nums; }
+
+  /* ---------- layout ---------- */
+  main {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 26px 24px 80px;
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+    gap: 30px;
+    align-items: start;
+  }
+  @media (max-width: 940px) {
+    main { grid-template-columns: 1fr; gap: 22px; }
+    .player-col { order: -1; }
+  }
+
+  /* ---------- inputs & forms ---------- */
+  .input-label {
+    display: block;
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin: 18px 0 8px;
+  }
+  .input-label:first-child { margin-top: 0; }
+
+  .url-input-wrap, .search {
+    display: flex;
+    gap: 10px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 6px 6px 6px 14px;
+    transition: border-color .15s, box-shadow .15s;
+    align-items: center;
+  }
+  .url-input-wrap:focus-within, .search:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-dim);
+  }
+  .url-input-wrap.shake {
+    animation: shakeAnim 0.35s ease-in-out;
+    border-color: #ff4d4f !important;
+    box-shadow: 0 0 0 3px #ff4d4f33 !important;
+  }
+  @keyframes shakeAnim {
+    0%, 100% { transform: translateX(0); }
+    20%, 60% { transform: translateX(-6px); }
+    40%, 80% { transform: translateX(6px); }
+  }
+  .url-input-wrap svg, .search svg {
+    flex: none;
+    color: var(--text-faint);
+  }
+
+  input[type=text], input[type=url] {
+    flex: 1;
+    min-width: 0;
+    padding: 10px 0;
+    border: 0;
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+  }
+  input[type=text]:focus, input[type=url]:focus { outline: none; }
+  input[type=text]::placeholder, input[type=url]::placeholder { color: var(--text-faint); }
+
+  .btn-load {
+    flex: none;
+    padding: 10px 20px;
+    border: 1px solid #ff6b3566;
+    border-radius: 8px;
+    background: #ff6b3520;
+    color: var(--accent);
+    font: inherit;
+    font-weight: 700;
+    font-size: 13.5px;
+    cursor: pointer;
+    transition: all .15s;
+    white-space: nowrap;
+  }
+  .btn-load:hover:not(:disabled) {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+    box-shadow: 0 0 12px var(--accent-dim);
+  }
+  .btn-load:disabled { opacity: .55; cursor: default; }
+
+  .server-alert {
+    background: #ff4d4f18;
+    border: 1px solid #ff4d4f55;
+    color: #ff7875;
+    padding: 10px 14px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    font-size: 13px;
+    display: none;
+  }
+  .server-alert code {
+    background: #ff4d4f33;
+    padding: 2px 6px;
+    border-radius: 4px;
+    color: #fff;
+  }
+
+  button.ask {
+    flex: none;
+    padding: 11px 24px;
+    border: 0;
+    border-radius: 8px;
+    background: var(--accent);
+    color: #fff;
+    font: inherit;
+    font-weight: 650;
+    cursor: pointer;
+    transition: filter .15s, opacity .15s;
+  }
+  button.ask:hover:not(:disabled) { filter: brightness(1.1); }
+  button.ask:disabled { opacity: .55; cursor: default; }
+
+  /* ---------- status pill ---------- */
+  .url-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    padding: 7px 12px;
+    border-radius: 8px;
+    background: var(--bg-soft);
+    border: 1px solid var(--border);
+    font-size: 12.5px;
+    color: var(--text-dim);
+  }
+  .url-status .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--text-faint);
+    flex: none;
+  }
+  .url-status.ready .dot { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .url-status.loading .dot { background: var(--amber); animation: pulse 1s infinite alternate; }
+  .url-status.error .dot { background: #ff4d4f; }
+  @keyframes pulse { from { opacity: 0.3; } to { opacity: 1; } }
+
+  /* ---------- progress & loading indicator ---------- */
+  .progress-wrap {
+    margin-top: 10px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 13px 15px;
+    transition: all .2s;
+  }
+  .progress-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 12.5px;
+    color: var(--text-dim);
+    margin-bottom: 9px;
+  }
+  .progress-info b {
+    color: var(--accent);
+    font-variant-numeric: tabular-nums;
+  }
+  .progress-stats {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .progress-track {
+    width: 100%;
+    height: 7px;
+    background: var(--bg-soft);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+  .progress-bar {
+    width: 0%;
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), #ff9800);
+    border-radius: 999px;
+    transition: width .2s ease-out;
+    box-shadow: 0 0 10px var(--accent-dim);
+  }
+
+  /* ---------- example chips ---------- */
+  .examples-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 14px;
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+  }
+  .examples { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+  .chip {
+    border: 1px solid var(--border);
+    background: var(--bg-soft);
+    color: var(--text-dim);
+    border-radius: 999px;
+    padding: 6px 14px;
+    font: inherit;
+    font-size: 12.5px;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .chip:hover { border-color: var(--accent); color: var(--text); background: var(--panel-2); transform: translateY(-1px); }
+  .chip.dynamic {
+    border-color: #ff6b3544;
+    background: #ff6b3512;
+    color: var(--text);
+  }
+  .chip.dynamic:hover {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: #fff;
+  }
+
+  /* ---------- results list ---------- */
+  .label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    margin: 28px 0 10px;
+  }
+  .empty-state {
+    background: var(--panel);
+    border: 1px dashed var(--border);
+    border-radius: var(--radius);
+    padding: 28px 20px;
+    color: var(--text-faint);
+    text-align: center;
+    font-size: 14px;
+  }
+  .result {
+    display: grid;
+    grid-template-columns: 28px 1fr auto;
+    gap: 6px 12px;
+    width: 100%;
+    text-align: left;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 13px 15px;
+    margin-bottom: 10px;
+    color: var(--text);
+    font: inherit;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .result:hover { border-color: var(--accent); background: var(--panel-2); transform: translateX(2px); }
+  .result.active { border-color: var(--accent); background: var(--panel-2); box-shadow: 0 0 0 1px var(--accent); }
+  .result .n {
+    grid-row: 1;
+    width: 28px; height: 28px;
+    display: grid; place-items: center;
+    background: var(--accent-dim); color: var(--accent);
+    border-radius: 7px; font-size: 12px; font-weight: 700;
+  }
+  .result .title-row {
+    grid-row: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+  .result .title {
+    font-size: 14.5px; font-weight: 600;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .result .action-badges {
+    grid-row: 1;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .result .at {
+    font-variant-numeric: tabular-nums;
+    background: var(--accent); color: #fff;
+    border-radius: 6px; padding: 3px 9px;
+    font-size: 12px; font-weight: 700;
+    white-space: nowrap;
+  }
+  .result .yt-link {
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 3px 7px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    transition: all .12s;
+  }
+  .result .yt-link:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+  .result .preview {
+    grid-column: 2 / 4; grid-row: 2;
+    color: var(--text-faint); font-size: 13px; line-height: 1.5;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* ---------- player section ---------- */
+  .player-col { position: sticky; top: 24px; }
+  #playerWrap {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .player-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 14px;
+    background: var(--bg-soft);
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    gap: 10px;
+  }
+  .player-title {
+    font-weight: 600;
+    color: var(--text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: 60%;
+  }
+  .direct-yt-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: var(--accent);
+    color: #fff;
+    text-decoration: none;
+    font-weight: 650;
+    font-size: 12px;
+    padding: 5px 11px;
+    border-radius: 6px;
+    transition: filter .15s;
+    white-space: nowrap;
+  }
+  .direct-yt-btn:hover { filter: brightness(1.1); }
+  #playerBox { aspect-ratio: 16/9; background: #000; position: relative; }
+  #playerBox iframe { width: 100%; height: 100%; border: 0; display: block; }
+  .placeholder {
+    height: 100%;
+    display: grid; place-items: center; align-content: center; gap: 10px;
+    padding: 26px; text-align: center;
+    color: var(--text-faint); font-size: 14px;
+  }
+  .placeholder .big { font-size: 32px; opacity: .4; }
+  #nowPlaying {
+    padding: 12px 15px;
+    font-size: 13px;
+    color: var(--text-dim);
+    border-top: 1px solid var(--border);
+    display: flex; align-items: center; gap: 9px;
+  }
+  #nowPlaying .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--text-faint); flex: none; }
+  #nowPlaying.live .dot { background: var(--green); box-shadow: 0 0 8px var(--green); }
+
+  /* ---------- shimmer / loading ---------- */
+  .shimmer { position: relative; overflow: hidden; }
+  .shimmer::after {
+    content: "";
+    position: absolute; inset: 0;
+    background: linear-gradient(90deg, transparent, #ffffff0a, transparent);
+    animation: sweep 1.3s infinite;
+  }
+  @keyframes sweep { to { transform: translateX(100%); } }
+  .skel { height: 14px; border-radius: 5px; background: var(--panel-2); margin-bottom: 10px; }
+  .skel:last-child { width: 60%; margin-bottom: 0; }
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 22px 24px 34px;
+    text-align: center;
+    color: var(--text-faint);
+    font-size: 13px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-inner">
+    <div class="brand">Dynamic Video RAG</div>
+    <h1>Search <em>inside</em> any YouTube video or playlist.</h1>
+    <p class="tagline">
+      Submit any YouTube link to fetch, chunk, and index it on the fly.
+      Ask questions and jump directly to the exact second the topic was explained.
+    </p>
+    <div class="stats">
+      <span><b id="statLectures">—</b> cached videos</span>
+      <span><b id="statHours">—</b> hours indexed</span>
+      <span><b id="statChunks">—</b> searchable moments</span>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section>
+    <div id="serverAlert" class="server-alert">
+      ⚠️ <b>Server not detected:</b> Could not reach <code>http://127.0.0.1:8000</code>. Please start the backend with: <code>python serve.py</code>
+    </div>
+
+    <!-- Step 1: Upload / Load YouTube Link -->
+    <form id="urlForm">
+      <label class="input-label" for="ytUrl">1. YouTube Link (Video or Playlist)</label>
+      <div id="urlInputWrap" class="url-input-wrap">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
+        </svg>
+        <input id="ytUrl" type="text" placeholder="Paste YouTube link here & press Enter (e.g. https://www.youtube.com/watch?v=...)" autocomplete="off" />
+        <button class="btn-load" id="ingestBtn" type="button">Load Video</button>
+      </div>
+    </form>
+    <div id="urlStatus" class="url-status">
+      <span class="dot"></span>
+      <span id="urlStatusText">Paste a URL above to load, or type a question below to search.</span>
+    </div>
+
+    <!-- Real-time Loading & Ingestion Progress -->
+    <div id="progressWrap" class="progress-wrap" style="display:none">
+      <div class="progress-info">
+        <span id="progressStep">Extracting video transcript...</span>
+        <span class="progress-stats"><b id="progressPercent">0%</b> <span id="progressEta">(~3s left)</span></span>
+      </div>
+      <div class="progress-track">
+        <div id="progressBar" class="progress-bar"></div>
+      </div>
+    </div>
+
+    <!-- Step 2: Query / Search -->
+    <form id="askForm" style="margin-top: 14px;">
+      <label class="input-label" for="q">2. Ask or Search Topic</label>
+      <div class="search">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+          <circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>
+        </svg>
+        <input id="q" type="text" maxlength="500" autocomplete="off"
+               placeholder="e.g. memoization vs tabulation, or when to use dynamic programming" />
+        <button class="ask" id="askBtn" type="submit">Search & Jump</button>
+      </div>
+    </form>
+
+    <div class="examples-header">
+      <span id="examplesLabel">Suggested Questions:</span>
+    </div>
+    <div class="examples" id="examples"></div>
+
+    <div class="label" id="resultsLabel">Matching Video Moments</div>
+    <div id="results" class="empty-state">
+      Submit a video link and ask a question to see exact timestamped moments here. Click any result to play it.
+    </div>
+  </section>
+
+  <!-- Player Column -->
+  <section class="player-col">
+    <div id="playerWrap">
+      <div class="player-header">
+        <span class="player-title" id="nowTitle">Video Player</span>
+        <a id="directYtBtn" class="direct-yt-btn" href="#" target="_blank" rel="noopener" style="display:none">
+          ▶ Open on YouTube ↗
+        </a>
+      </div>
+      <div id="playerBox">
+        <div class="placeholder">
+          <div class="big">▶</div>
+          <div>Click any matching timestamp to play the video here at that exact second.</div>
+        </div>
+      </div>
+      <div id="nowPlaying"><span class="dot"></span><span id="nowText">No video loaded</span></div>
+      <div style="font-size:11.5px;color:var(--text-faint);padding:6px 14px;border-top:1px solid var(--border);background:var(--bg-soft)">
+        <span>Tip: If playback shows "Error 153" in this preview, click <b>▶ Open on YouTube ↗</b> above or open in browser at <code style="color:var(--accent)">http://127.0.0.1:8000</code>.</span>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  Dynamic YouTube RAG — Audio transcribed, chunked, and embedded with timestamps for precise video jumping.
+</footer>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const form = $("askForm"), input = $("q"), askBtn = $("askBtn");
+const ytUrlInput = $("ytUrl"), ingestBtn = $("ingestBtn");
+const urlStatus = $("urlStatus"), urlStatusText = $("urlStatusText");
+const resultsEl = $("results"), nowText = $("nowText"), nowPlaying = $("nowPlaying");
+
+// Detect API base URL: if running inside an IDE preview (different port) or file://,
+// point directly to the FastAPI server at http://127.0.0.1:8000
+const API_BASE = (
+  window.location.protocol === "file:" ||
+  (window.location.port && window.location.port !== "8000")
+) ? "http://127.0.0.1:8000" : "";
+
+// Safe API helper that parses responses and returns helpful errors if the backend is down
+async function apiCall(endpoint, options = {}) {
+  const url = `${API_BASE}${endpoint}`;
+  let res;
+  try {
+    res = await fetch(url, options);
+  } catch (err) {
+    throw new Error(
+      `Cannot connect to backend server. Make sure it is running in your terminal:\n` +
+      `python serve.py (http://127.0.0.1:8000)`
+    );
+  }
+
+  const rawText = await res.text();
+  let data;
+  try {
+    data = JSON.parse(rawText);
+  } catch (_) {
+    if (res.status === 403 && rawText.includes("Forbidden")) {
+      throw new Error(
+        `403 Forbidden from preview server. Please open the app in a real browser tab at: http://127.0.0.1:8000`
+      );
+    }
+    if (!res.ok) {
+      throw new Error(`Server returned HTTP ${res.status}: ${rawText.slice(0, 160)}`);
+    }
+    throw new Error(`Invalid JSON from server: ${rawText.slice(0, 160)}`);
+  }
+
+  if (!res.ok) {
+    throw new Error(data.detail || `Request failed with status ${res.status}`);
+  }
+  return data;
+}
+
+// ---------- stats ----------
+apiCall("/meta").then(m => {
+  $("statLectures").textContent = m.lectures;
+  $("statHours").textContent = m.hours;
+}).catch(() => {});
+apiCall("/stats").then(s => {
+  $("statChunks").textContent = (s.chunks || 0).toLocaleString();
+}).catch(() => {});
+
+// ---------- helper: extract youtube id from url ----------
+function extractVideoId(url) {
+  if (!url) return null;
+  const regExp = /(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/;
+  const match = url.match(regExp);
+  return match ? match[1] : null;
+}
+
+// ---------- Dynamic Suggested Questions & Examples ----------
+function renderSuggestedQuestions(questions, isDynamic = false) {
+  const container = $("examples");
+  container.innerHTML = "";
+  if (!questions || !questions.length) return;
+
+  $("examplesLabel").textContent = isDynamic ? "Suggested Questions from this Video:" : "Sample Questions:";
+
+  questions.forEach(text => {
+    const b = document.createElement("button");
+    b.className = "chip" + (isDynamic ? " dynamic" : "");
+    b.type = "button";
+    b.textContent = text;
+    b.onclick = () => {
+      input.value = text;
+      form.requestSubmit();
+    };
+    container.appendChild(b);
+  });
+}
+
+const DEFAULT_EXAMPLES = [
+  "memoization aur tabulation ka difference",
+  "sliding window kab use kare",
+  "number of islands kaise solve kare",
+  "dijkstra algorithm explanation",
+  "recursion template",
+];
+renderSuggestedQuestions(DEFAULT_EXAMPLES, false);
+
+// ---------- Real-time Progress & ETA Controller ----------
+function createProgressTracker(estimatedSeconds = 4.5) {
+  const wrap = $("progressWrap");
+  const bar = $("progressBar");
+  const percentEl = $("progressPercent");
+  const stepEl = $("progressStep");
+  const etaEl = $("progressEta");
+
+  wrap.style.display = "block";
+  bar.style.width = "4%";
+  percentEl.textContent = "4%";
+  stepEl.textContent = "Connecting to YouTube & extracting captions…";
+  etaEl.textContent = `(~${Math.ceil(estimatedSeconds)}s left)`;
+
+  const startTime = Date.now();
+  let finished = false;
+
+  const interval = setInterval(() => {
+    if (finished) return;
+    const elapsed = (Date.now() - startTime) / 1000;
+    const ratio = Math.min(0.94, elapsed / estimatedSeconds);
+    const pct = Math.min(94, Math.max(6, Math.round(ratio * 92)));
+
+    bar.style.width = `${pct}%`;
+    percentEl.textContent = `${pct}%`;
+
+    const remaining = Math.max(1, Math.ceil(estimatedSeconds - elapsed));
+    etaEl.textContent = `(~${remaining}s left)`;
+
+    if (pct < 35) {
+      stepEl.textContent = "Fetching video subtitles & speech timestamps…";
+    } else if (pct < 70) {
+      stepEl.textContent = "Chunking text & preserving timestamp links…";
+    } else {
+      stepEl.textContent = "Embedding vectors & generating dynamic questions…";
+    }
+  }, 200);
+
+  return {
+    finish: (message = "Completed!") => {
+      finished = true;
+      clearInterval(interval);
+      bar.style.width = "100%";
+      percentEl.textContent = "100%";
+      stepEl.textContent = `✓ ${message}`;
+      etaEl.textContent = "";
+
+      setTimeout(() => {
+        wrap.style.display = "none";
+        bar.style.width = "0%";
+      }, 2500);
+    },
+    fail: () => {
+      finished = true;
+      clearInterval(interval);
+      wrap.style.display = "none";
+      bar.style.width = "0%";
+    }
+  };
+}
+
+// ---------- YouTube Player & Timestamp Jumping ----------
+let currentVideo = null;
+
+function openOnYouTube(videoId, seconds) {
+  window.open(`https://www.youtube.com/watch?v=${videoId}&t=${Math.floor(seconds)}s`, "_blank", "noopener");
+}
+
+function jump(videoId, seconds, title, el) {
+  if (!videoId) return;
+  seconds = Math.max(0, Math.floor(seconds));
+  const ytUrl = `https://www.youtube.com/watch?v=${videoId}&t=${seconds}s`;
+
+  $("nowTitle").textContent = title || "YouTube Video";
+  const directBtn = $("directYtBtn");
+  directBtn.href = ytUrl;
+  directBtn.textContent = `▶ Open @ ${fmt(seconds)} on YouTube ↗`;
+  directBtn.style.display = "inline-flex";
+
+  nowText.innerHTML = `<span>${escapeHtml(title || 'Video')}</span> — <b>${fmt(seconds)}</b> `
+    + `<a href="${ytUrl}" target="_blank" rel="noopener" style="margin-left:auto;color:var(--accent);font-weight:600">Open on YouTube ↗</a>`;
+  nowPlaying.classList.add("live");
+
+  document.querySelectorAll(".result.active").forEach(n => n.classList.remove("active"));
+  if (el) el.classList.add("active");
+
+  const playerBox = $("playerBox");
+  let iframe = playerBox.querySelector("iframe");
+  const embedUrl = `https://www.youtube-nocookie.com/embed/${videoId}?autoplay=1&start=${seconds}&rel=0`;
+
+  if (!iframe || currentVideo !== videoId) {
+    playerBox.innerHTML = `
+      <iframe
+        id="ytIframe"
+        src="${embedUrl}"
+        title="YouTube Video Player"
+        frameborder="0"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        referrerpolicy="strict-origin-when-cross-origin"
+        allowfullscreen
+      ></iframe>
+    `;
+    currentVideo = videoId;
+  } else {
+    iframe.src = embedUrl;
+  }
+
+  if (window.innerWidth <= 940) {
+    document.getElementById("playerWrap").scrollIntoView({ behavior: "smooth", block: "center" });
+  }
+}
+
+function fmt(t) {
+  t = Math.max(0, Math.floor(t));
+  const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), s = t % 60;
+  const mm = String(m).padStart(2, "0"), ss = String(s).padStart(2, "0");
+  return h ? `${h}:${mm}:${ss}` : `${mm}:${ss}`;
+}
+
+// ---------- Ingestion Handler ----------
+async function handleIngest() {
+  const url = ytUrlInput.value.trim();
+  const wrap = $("urlInputWrap");
+
+  if (!url) {
+    if (wrap) {
+      wrap.classList.add("shake");
+      setTimeout(() => wrap.classList.remove("shake"), 400);
+    }
+    urlStatus.className = "url-status error";
+    urlStatusText.textContent = "Please paste a valid YouTube video or playlist URL first.";
+    ytUrlInput.focus();
+    return;
+  }
+
+  ingestBtn.disabled = true;
+  ingestBtn.textContent = "Ingesting…";
+  urlStatus.className = "url-status loading";
+  urlStatusText.textContent = "Extracting transcript and generating embeddings on the fly…";
+
+  const videoId = extractVideoId(url);
+  if (videoId) {
+    jump(videoId, 0, "Uploaded video", null);
+  }
+
+  const tracker = createProgressTracker(4.0);
+
+  try {
+    const data = await apiCall("/ingest", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url })
+    });
+
+    tracker.finish(`Ingested ${data.chunks_count} chunk(s)!`);
+    urlStatus.className = "url-status ready";
+    const title = data.titles && data.titles.length ? ` "${data.titles[0]}"` : "";
+    urlStatusText.textContent = `✓ Ready${title}: ${data.chunks_count} moment(s) indexed. Dynamic questions generated!`;
+
+    // Update chips dynamically with context from this video!
+    if (data.suggested_questions && data.suggested_questions.length) {
+      renderSuggestedQuestions(data.suggested_questions, true);
+    }
+
+    ingestBtn.textContent = "✓ Loaded";
+    setTimeout(() => {
+      ingestBtn.disabled = false;
+      ingestBtn.textContent = "Load Video";
+    }, 2000);
+  } catch (err) {
+    tracker.fail();
+    urlStatus.className = "url-status error";
+    urlStatusText.textContent = `Error: ${err.message}`;
+    ingestBtn.disabled = false;
+    ingestBtn.textContent = "Load Video";
+  }
+}
+
+// Attach to both form submit and button click
+$("urlForm").addEventListener("submit", (e) => {
+  e.preventDefault();
+  handleIngest();
+});
+ingestBtn.addEventListener("click", (e) => {
+  e.preventDefault();
+  handleIngest();
+});
+
+// ---------- Form Submit (Search & Jump) ----------
+form.addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const query = input.value.trim();
+  const url = ytUrlInput.value.trim();
+
+  if (!query) {
+    input.focus();
+    return;
+  }
+
+  askBtn.disabled = true;
+  askBtn.textContent = "Searching…";
+  resultsEl.className = "shimmer";
+  resultsEl.innerHTML = '<div class="skel" style="height:62px"></div>'
+                      + '<div class="skel" style="height:62px"></div>'
+                      + '<div class="skel" style="height:62px"></div>';
+
+  let tracker = null;
+  if (url) {
+    tracker = createProgressTracker(4.5);
+  }
+
+  try {
+    let data;
+    if (url) {
+      urlStatus.className = "url-status loading";
+      urlStatusText.textContent = "Matching your question against the video on the fly…";
+
+      data = await apiCall("/query", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url, query, top_k: 5 })
+      });
+
+      if (tracker) tracker.finish(`${data.count} result(s) found!`);
+      urlStatus.className = "url-status ready";
+      urlStatusText.textContent = `✓ Dynamic index active (${data.count} matching moment(s) found).`;
+
+      // Update question chips with dynamic questions from this video
+      if (data.suggested_questions && data.suggested_questions.length) {
+        renderSuggestedQuestions(data.suggested_questions, true);
+      }
+    } else {
+      data = await apiCall("/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question: query, top_k: 5 })
+      });
+    }
+
+    renderResults(data);
+  } catch (err) {
+    if (tracker) tracker.fail();
+    resultsEl.className = "empty-state";
+    resultsEl.textContent = String(err.message || err);
+    if (url) {
+      urlStatus.className = "url-status error";
+      urlStatusText.textContent = `Error: ${err.message}`;
+    }
+  } finally {
+    askBtn.disabled = false;
+    askBtn.textContent = "Search & Jump";
+  }
+});
+
+// ---------- Render Results ----------
+function renderResults(data) {
+  const results = data.results || [];
+  resultsEl.className = "";
+  resultsEl.innerHTML = "";
+
+  if (!results.length) {
+    resultsEl.className = "empty-state";
+    resultsEl.textContent = "No relevant matches found in this video/audio for your question.";
+    return;
+  }
+
+  results.forEach((r, i) => {
+    const card = document.createElement("button");
+    card.className = "result";
+    card.type = "button";
+
+    const startSec = r.start_time !== undefined ? r.start_time : (r.start_sec || 0);
+    const videoId = r.video_id || extractVideoId(r.video_url) || "";
+    const title = r.video_title || r.title || "Video Segment";
+    const timestampStr = r.timestamp || fmt(startSec);
+    const targetUrl = r.video_url || `https://www.youtube.com/watch?v=${videoId}&t=${startSec}s`;
+
+    card.innerHTML = `
+      <span class="n">${i + 1}</span>
+      <div class="title-row">
+        <span class="title">${escapeHtml(title)}</span>
+      </div>
+      <div class="action-badges">
+        <span class="at">${timestampStr}</span>
+        <a class="yt-link" href="${targetUrl}" target="_blank" rel="noopener" title="Open directly on YouTube">
+          <span>↗</span> YouTube
+        </a>
+      </div>
+      <div class="preview">${escapeHtml(r.preview || r.text || '')}</div>
+    `;
+
+    card.addEventListener("click", (e) => {
+      if (e.target.closest(".yt-link")) return;
+      jump(videoId, startSec, title, card);
+    });
+
+    resultsEl.appendChild(card);
+  });
+
+  const first = results[0];
+  const firstStartSec = first.start_time !== undefined ? first.start_time : (first.start_sec || 0);
+  const firstVid = first.video_id || extractVideoId(first.video_url) || "";
+  const firstTitle = first.video_title || first.title || "Top Match";
+  jump(firstVid, firstStartSec, firstTitle, resultsEl.querySelector(".result"));
+}
+
+function escapeHtml(str) {
+  if (!str) return "";
+  return str.replace(/[&<>'"]/g, 
+    tag => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[tag] || tag)
+  );
+}
+
+// Check server connectivity on page load
+async function checkServer() {
+  const alertEl = $("serverAlert");
+  try {
+    const res = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(2500) });
+    if (res.ok) {
+      alertEl.style.display = "none";
+    } else {
+      alertEl.style.display = "block";
+    }
+  } catch (_) {
+    alertEl.style.display = "block";
+  }
+}
+checkServer();
+</script>
+</body>
+</html>
