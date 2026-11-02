@@ -31,7 +31,7 @@ Most traditional RAG (Retrieval-Augmented Generation) applications treat videos 
 **Dynamic YouTube RAG changes that:**
 1. Submit **any** YouTube video or playlist URL on the fly.
 2. The pipeline extracts, chunks, and indexes it within seconds.
-3. Ask questions in English or Hinglish.
+3. Ask questions in English,Nepali or Nepangrazi.
 4. **Jump directly to the exact second (`&t=120s`) the topic was explained**, either inside the embedded web player or directly on YouTube.
 
 ```
